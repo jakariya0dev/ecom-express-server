@@ -47,15 +47,25 @@ const userSchema = new mongoose.Schema({
         default: false,
     },
     otp: {
-        type: String
+        type: String,
+        default: null,
+        select: false
     },
     otpExpires: {
-        type: Date
-    },
-    date: {
         type: Date,
-        default: Date.now,
+        default: null,
+        select: false
     },
+    resetPasswordToken: {
+        type: String,
+        default: null,
+        select: false
+    },
+    resetPasswordExpires: {
+        type: Date,
+        default: null,
+        select: false
+    }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);

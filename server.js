@@ -5,6 +5,9 @@ import { connectDB } from "./config/db.js";
 import morgan from "morgan";
 import helmet from "helmet";
 
+// import routes
+import userRouter from "./routes/userRoute.js";
+
 dotenv.config();
 const app = express();
 
@@ -14,7 +17,8 @@ app.use(cors());
 app.use(morgan("dev"));
 app.use(helmet());
 
-
+// routes
+app.use("/api/users", userRouter);
 
 app.get("/", (req, res) => {
   res.send("Welcome to the API");
