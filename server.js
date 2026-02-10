@@ -20,6 +20,7 @@ app.use(helmet());
 // routes
 app.use("/api/users", userRouter);
 
+// home route
 app.get("/", (req, res) => {
   res.send("Welcome to the API");
 });
