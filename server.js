@@ -7,6 +7,7 @@ import helmet from "helmet";
 
 // import routes
 import userRouter from "./routes/userRoute.js";
+import categoryRouter from "./routes/categoryRoute.js";
 
 dotenv.config();
 const app = express();
@@ -19,6 +20,7 @@ app.use(helmet());
 
 // routes
 app.use("/api/users", userRouter);
+app.use("/api/categories", categoryRouter);
 
 // home route
 app.get("/", (req, res) => {
