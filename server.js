@@ -20,6 +20,8 @@ app.use(helmet());
 
 // routes
 app.use("/api/users", userRouter);
+
+// Admin Dashboard Routes
 app.use("/api/categories", categoryRouter);
 
 // home route
