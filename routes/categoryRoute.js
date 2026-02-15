@@ -1,13 +1,12 @@
 import express from "express";
 import multer from "multer";
-import { createCategory, getCategories, getRootCategories, getSubCategories, getCategory } from "../controllers/categoryController.js";
-import e from "express";
+import { createCategory, getCategories, getRootCategories, getSubCategories, getCategory, updateCategory, deleteCategory } from "../controllers/categoryController.js";
 
 const categoryRouter = express.Router();
 
 // Require for file upload with multer
-const storage = multer.memoryStorage();
-const multerUpload = multer({ storage }).single("image");
+const storage = multer.memoryStorage(); // Use memory storage
+const multerUpload = multer({ storage }).single("image"); // Expecting a single file with the field name "image"
 
 // @route   GET /api/categories
 // @desc    Get all categories
@@ -24,10 +23,15 @@ categoryRouter.get("/:id", getCategory);
 // @access  Private
 categoryRouter.post("/create", multerUpload, createCategory);
 
-// @route   GET /api/categories/update/:id
+// @route   PUT /api/categories/update/:id
 // @desc    Update category by ID
 // @access  Private
 categoryRouter.put("/update/:id", multerUpload, updateCategory);
+
+// @route   DELETE /api/categories/delete/:id
+// @desc    Delete category by ID
+// @access  Private
+categoryRouter.delete("/delete/:id", deleteCategory);
 
 // @route   GET /api/categories/parents
 // @desc    Get all parent categories
