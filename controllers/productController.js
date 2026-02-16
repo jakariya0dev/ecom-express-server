@@ -1,5 +1,6 @@
+import { mongo } from "mongoose";
 import Product from "../models/productModel.js";
-import { uploadImageToCloudinary } from "../services/fileUploadServices.js";
+import { deleteImageFromCloudinary, uploadImageToCloudinary } from "../services/fileUploadServices.js";
 
 export const createProduct = async (req, res) => {
   const {
@@ -32,21 +33,19 @@ export const createProduct = async (req, res) => {
     product.category = category;
     product.tags = tags;
     product.attributes = attributes;
-    product.thumbnail = thumbnail;
+    product.attributes = attributes;
     product.videoUrl = videoUrl;
     product.isFeatured = isFeatured;
     product.isActive = isActive;
     product.isDigital = isDigital;
-    product.thumbnail = imageData;
-    await product.save();
+    product.thumbnail = imageData || thumbnail;
+    await product.save();    await product.save();
 
-    res
-      .status(201)
-      .json({
-        success: true,
-        message: "Product created successfully",
-        product: product,
-      });
+    res.status(201).json({
+      success: true,
+      message: "Product created successfully",
+      product: product,
+    });
   } catch (error) {
     res
       .status(500)
@@ -65,7 +64,141 @@ export const getAllProducts = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Server error: ${error.message}",
+      message: `Server error: ${error.message}`,
     });
   }
 };
+
+export const getProductById = async (req, res) => {
+  const { id } = req.params;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "Product ID is required",
+    });
+  }
+
+  try {
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,        message: "Product not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Product fetched successfully",
+      product,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Server error: ${error.message}`,
+    });
+  }
+};
+
+export const updateProduct = async (req, res) => {
+  const { id } = req.params;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "Product ID is required",
+    });
+  }
+
+  try {
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+    const {
+      name,
+      shortDescription,
+      longDescription,
+      brand,
+      category,
+      tags,
+      attributes,
+      thumbnail,      videoUrl,
+      isFeatured,
+      isActive,
+      isDigital,
+    } = req.body;
+
+    if (name) product.name = name;
+    if (shortDescription) product.shortDescription = shortDescription;
+    if (longDescription) product.longDescription = longDescription;
+    if (brand) product.brand = brand;
+    if (category) product.category = category;
+    if (tags) product.tags = tags;
+    if (attributes) product.attributes = attributes;
+    if (videoUrl) product.videoUrl = videoUrl;
+    if (isFeatured !== undefined) product.isFeatured = isFeatured;
+    if (isActive !== undefined) product.isActive = isActive;
+    if (isDigital !== undefined) product.isDigital = isDigital;
+    if (req.file) {
+      deleteImageFromCloudinary(product.thumbnail?.public_id);
+      const imageData = await uploadImageToCloudinary(req.file);
+      product.thumbnail = imageData;
+    }
+
+    await product.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Product updated successfully",
+      product,
+    });
+  } catch (error) {    res.status(500).json({
+      success: false,
+      message: `Server error: ${error.message}`,
+    });
+  }
+};
+
+export const deleteProduct = async (req, res) => {
+  const { id } = req.params;
+  if (!id || !mongo.isValidObjectId(id)) {
+    return res.status(400).json({
+      success: false,
+      message: "Product ID is required and must be a valid MongoDB ObjectId",
+    });
+  }
+
+  try {
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+    
+    if (product.thumbnail?.public_id) {
+      try{
+        await deleteImageFromCloudinary(product.thumbnail.public_id);
+      }
+      catch(error){
+        console.error(`Failed to delete image from Cloudinary: ${error.message}`);
+      }
+    }
+    await product.deleteOne();
+    res.status(200).json({
+      success: true,
+      message: "Product deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Server error: ${error.message}`,
+    });
+  }
+};
+
+
+
+

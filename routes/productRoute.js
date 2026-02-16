@@ -1,5 +1,5 @@
 import express from "express";
-import {createProduct} from "productController"
+import {createProduct, getAllProducts, deleteProduct} from "productController"
 
 const productRoute = express.Router();
 
@@ -13,5 +13,13 @@ productRoute.get('/all', getAllProducts);
 // @access  Private
 productRoute.post('/create', createProduct);
 
-// @route
+// @route   PUT api/product/:id
+// @desc    update product category
+// @access  Private
+productRoute.put()
+
+// @route DELETE api/product/:id
+// @desc delete a product
+// @access Private
+productRoute.delete('/:id', deleteProduct);
 export default productRoute;
