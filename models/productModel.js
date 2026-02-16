@@ -31,7 +31,8 @@ const productSchema = new mongoose.Schema(
 
     // Status
     isFeatured: { type: Boolean, default: false },
-    isActive: { type: Boolean, default: true },
+    isActive: { type: Boolean, default: true }, // For visibility control
+    isDeleted: { type: Boolean, default: false }, // Soft delete flag
     isDigital: { type: Boolean, default: false }, // True for software/ebooks
   },
   {

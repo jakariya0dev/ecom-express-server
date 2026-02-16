@@ -1,5 +1,6 @@
 import express from "express";
-import {createProduct, getAllProducts, deleteProduct} from "productController"
+import {createProduct, getAllProducts,updateProduct, deleteProduct} from "productController";
+import { validateMongoId } from "validationMiddleware";
 
 const productRoute = express.Router();
 
@@ -16,10 +17,10 @@ productRoute.post('/create', createProduct);
 // @route   PUT api/product/:id
 // @desc    update product category
 // @access  Private
-productRoute.put()
+productRoute.put('/:id', updateProduct);
 
 // @route DELETE api/product/:id
 // @desc delete a product
 // @access Private
-productRoute.delete('/:id', deleteProduct);
+productRoute.delete('/:id', validateMongoId, deleteProduct);
 export default productRoute;

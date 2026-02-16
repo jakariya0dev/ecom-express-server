@@ -71,19 +71,11 @@ export const getAllProducts = async (req, res) => {
 
 export const getProductById = async (req, res) => {
   const { id } = req.params;
-  if (!id) {
-    return res.status(400).json({
-      success: false,
-      message: "Product ID is required",
-    });
-  }
 
   try {
     const product = await Product.findById(id);
     if (!product) {
-      return res.status(404).json({
-        success: false,        message: "Product not found",
-      });
+      return res.status(404).json({success: false, message: "Product not found"});
     }
     res.status(200).json({
       success: true,
@@ -100,22 +92,7 @@ export const getProductById = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
   const { id } = req.params;
-  if (!id) {
-    return res.status(400).json({
-      success: false,
-      message: "Product ID is required",
-    });
-  }
-
-  try {
-    const product = await Product.findById(id);
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-    const {
+      const {
       name,
       shortDescription,
       longDescription,
@@ -129,6 +106,12 @@ export const updateProduct = async (req, res) => {
       isDigital,
     } = req.body;
 
+  try {
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({success: false, message: "Product not found"});
+    }
+
     if (name) product.name = name;
     if (shortDescription) product.shortDescription = shortDescription;
     if (longDescription) product.longDescription = longDescription;
@@ -140,10 +123,21 @@ export const updateProduct = async (req, res) => {
     if (isFeatured !== undefined) product.isFeatured = isFeatured;
     if (isActive !== undefined) product.isActive = isActive;
     if (isDigital !== undefined) product.isDigital = isDigital;
+
+    // Handle Image Update
     if (req.file) {
-      deleteImageFromCloudinary(product.thumbnail?.public_id);
+      const oldPublicId = product.thumbnail?.public_id;
+      
+      // Upload new image
       const imageData = await uploadImageToCloudinary(req.file);
       product.thumbnail = imageData;
+
+      // delete the old thumbnail from cloudinary if it exists
+      if (oldPublicId) {
+        await deleteImageFromCloudinary(oldPublicId).catch(err => 
+          console.error("Cloudinary image cleanup failed:", err.message)
+        );
+      }
     }
 
     await product.save();
@@ -162,12 +156,6 @@ export const updateProduct = async (req, res) => {
 
 export const deleteProduct = async (req, res) => {
   const { id } = req.params;
-  if (!id || !mongo.isValidObjectId(id)) {
-    return res.status(400).json({
-      success: false,
-      message: "Product ID is required and must be a valid MongoDB ObjectId",
-    });
-  }
 
   try {
     const product = await Product.findById(id);
@@ -186,7 +174,8 @@ export const deleteProduct = async (req, res) => {
         console.error(`Failed to delete image from Cloudinary: ${error.message}`);
       }
     }
-    await product.deleteOne();
+    product.isDeleted = true; // Soft delete
+    await product.save();
     res.status(200).json({
       success: true,
       message: "Product deleted successfully",
