@@ -1,12 +1,10 @@
 import express from "express";
-import multer from "multer";
+import { multerUpload } from "../services/fileUploadServices.js";
 import { createCategory, getCategories, getRootCategories, getSubCategories, getCategory, updateCategory, deleteCategory } from "../controllers/categoryController.js";
 
 const categoryRouter = express.Router();
 
-// Require for file upload with multer
-const storage = multer.memoryStorage(); // Use memory storage
-const multerUpload = multer({ storage }).single("image"); // Expecting a single file with the field name "image"
+
 
 // @route   GET /api/categories
 // @desc    Get all categories

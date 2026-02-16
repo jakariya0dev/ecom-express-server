@@ -13,7 +13,7 @@ export const createCategory = async (req, res) => {
       return res.status(400).json({ message: "Category name required" });
     }
 
-    const imageData = req.file ? await uploadImageToCloudinary(req.file) : null;
+    const imageData = req.file ? await uploadImageToCloudinary(req.file, "categories") : null;
 
     const category = new Category({
       name,
@@ -36,15 +36,8 @@ export const createCategory = async (req, res) => {
 
 export const updateCategory = async (req, res) => {
 
-  const { id } = req.params;
-  if (!id || !mongo.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({
-      success: false,
-      message: "Category ID is required and must be a valid MongoDB ObjectId",
-    });
-  }
   try {
-
+    const { id } = req.params;
     const { name, order, isActive, parent } = req.body;
     const category = await Category.findById(id);
 
@@ -85,15 +78,19 @@ export const updateCategory = async (req, res) => {
 
     // Update image safely
     if (req.file) {
-      if (category.image?.publicId) {
-        await deleteImageFromCloudinary(category.image.publicId);
-      }
+
+      const oldImagePublicId = category.image?.publicId;
 
       const imageData = await uploadImageToCloudinary(req.file);
       category.image = imageData;
+      await category.save();
+
+      if (oldImagePublicId) {
+        await deleteImageFromCloudinary(oldImagePublicId);
+      }
+
     }
 
-    await category.save();
 
     res.status(200).json({
       success: true,
@@ -110,17 +107,10 @@ export const updateCategory = async (req, res) => {
 };
 
 export const deleteCategory = async (req, res) => {
-
-  const { id } = req.params;
   
-  if (!id || !mongo.Types.ObjectId.isValid(req.params.id)) {
-    return res.status(400).json({
-      success: false,
-      message: "Category ID is required and must be a valid MongoDB ObjectId",
-    });
-  }
-
   try {
+
+    const { id } = req.params;
 
     const category = await Category.findById(id);
 
