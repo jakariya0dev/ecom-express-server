@@ -86,22 +86,19 @@ export const addToCart = async (req, res) => {
 
 // remove cart item
 export const removeCartItem = async (req, res) => {
-  
   const user = req.query.user; // TODO: later get user from auth middleware
 
   try {
-    const  variantId  = req.params.id;
+    const variantId = req.params.id;
 
     const cart = await Cart.findOne({ user });
 
     if (!cart) {
-      return res
-        .status(404)
-        .json({ 
-            success: false, 
-            message: "Cart not found", 
-            data: null 
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Cart not found",
+        data: null,
+      });
     }
 
     const itemIndex = cart.items.findIndex(
@@ -109,13 +106,11 @@ export const removeCartItem = async (req, res) => {
     );
 
     if (itemIndex === -1) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Item not found in cart",
-          data: null,
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Item not found in cart",
+        data: null,
+      });
     }
 
     cart.items.splice(itemIndex, 1);
@@ -128,11 +123,162 @@ export const removeCartItem = async (req, res) => {
     });
   } catch (error) {
     console.log(error.message);
-    res
-      .status(500)
-      .json({
+    res.status(500).json({
+      success: false,
+      message: "Failed to remove cart item",
+    });
+  }
+};
+
+// clear cart
+
+export const clearCart = async (req, res) => {
+  const user = req.query.user; // TODO: later get user from auth middleware
+
+  try {
+    const cart = await Cart.findOne({ user });
+
+    if (!cart) {
+      return res.status(404).json({
         success: false,
-        message: "Failed to remove cart item",
+        message: "Cart not found",
+        data: null,
       });
+    }
+
+    cart.items = [];
+    await cart.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Cart cleared successfully",
+      data: cart,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to clear cart",
+      error: error.message,
+    });
+  }
+};
+
+// increment cart item quantity
+export const incrementCartItem = async (req, res) => {
+  const user = req.query.user; // TODO: later get user from auth middleware
+
+  try {
+    const variantId = req.params.id;
+
+    const cart = await Cart.findOne({ user });
+
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: "Cart not found",
+        data: null,
+      });
+    }
+
+    const itemIndex = cart.items.findIndex(
+      (item) => item.variant?.toString() === variantId,
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found in cart",
+        data: null,
+      });
+    }
+
+    // check stock availability before incrementing
+    const variant = await Variant.findById(variantId);
+    if (!variant) {
+      return res.status(404).json({
+        success: false,    
+        message: "Variant not found, maybe it was deleted?",
+        data: null,
+      });
+    }
+    if (cart.items[itemIndex].quantity >= variant.stock) {
+      return res.status(400).json({
+        success: false,
+        message: "Out of stock",
+        data: null,
+      });
+    }
+
+    cart.items[itemIndex].quantity += 1;
+    await cart.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Cart item quantity incremented successfully",
+      data: cart,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to increment cart item quantity",
+      error: error.message,
+    });
+  }
+};
+
+// decrement cart item quantity
+export const decrementCartItem = async (req, res) => {
+  const user = req.query.user; // TODO: later get user from auth middleware
+
+  try {
+    const variantId = req.params.id;
+
+    const cart = await Cart.findOne({ user });
+
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: "Cart not found",
+        data: null,
+      });
+    }
+
+    const itemIndex = cart.items.findIndex(
+      (item) => item.variant?.toString() === variantId,
+    );
+
+    // If item not found in cart
+    if (itemIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found in cart",
+        data: null,
+      });
+    }
+
+    // Prevent quantity from going below 1
+    if (cart.items[itemIndex].quantity === 1) {
+      res.status(400).json({
+        success: false,
+        message: "Item quantity cannot be less than 1",
+        data: null,
+      });
+    }
+
+    // Decrement quantity and save
+    cart.items[itemIndex].quantity -= 1;
+    await cart.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Cart item quantity decremented successfully",
+      data: cart,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to decrement cart item quantity",
+      error: error.message,
+    });
   }
 };
