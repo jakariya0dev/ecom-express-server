@@ -56,7 +56,7 @@ export const userRegisterController = async (req, res) => {
     console.error("Error registering user:", error);
     res.status(500).json({
       success: false,
-      messegae: "Server error",
+      message: "Server error",
     });
   }
 };
@@ -178,7 +178,7 @@ export const userLoginController = async (req, res) => {
         email: user.email,
         role: user.role,
       },
-      process.env.JWT_SECRET,
+      process.env.JWT_ACCESS_SECRET,
       {
         expiresIn: "7d",
       },
@@ -309,7 +309,7 @@ export const userRefreshTokenController = async (req, res) => {
     if (!refreshToken) {
       return res.status(401).json({
         success: false,
-        message: "Token is required",
+        message: "Refresh token is required",
       });
     }
 
