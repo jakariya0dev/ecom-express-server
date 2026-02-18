@@ -9,25 +9,42 @@ const cartSchema = new mongoose.Schema(
     },
     items: [
       {
-        product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
-        variant: { type: mongoose.Schema.Types.ObjectId, ref: "Variant", required: true },
-        quantity: { type: Number, default: 1, min: 1 },
-        priceAtAdd: { type: Number, required: true }, // for tracking price changes
+        product: { 
+          type: mongoose.Schema.Types.ObjectId, 
+          ref: "Product", 
+          required: true 
+        },
+        variant: { 
+          type: mongoose.Schema.Types.ObjectId, 
+          ref: "Variant", 
+          required: true 
+        },
+        productName: { 
+          type: String, // product name snapshot
+          required: true 
+        },
+        variantName: { 
+          type: String, // variant name snapshot
+          required: true 
+        },
+        quantity: { 
+          type: Number, 
+          default: 1, 
+          min: 1,
+          required: true
+        },
+        priceAtAdd: { 
+          type: Number, // for tracking price changes
+          required: true 
+        }, 
       },
     ],
-    totalPrice: {
-      type: Number,
-      default: 0,
-    },
   },
-  { timestamps: true },
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } },
 );
 
-cartSchema.pre("save", function () {
-  this.totalPrice = this.items.reduce(
-    (total, item) => total + (item.priceAtAdd || 0) * (item.quantity || 0),
-    0,
-  );
+cartSchema.virtual("totalAmount").get(function () {
+  return this.items.reduce((total, item) => total + item.priceAtAdd * item.quantity, 0);
 });
 
 cartSchema.virtual("totalItems").get(function () {

@@ -7,34 +7,45 @@ const orderSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-
+    orderNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    transactionId: {
+      type: String,
+      unique: true,
+      default: null,
+    },
     items: [
       {
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+        },
         variant: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Variant",
           required: true,
         },
-
         productName: {
           type: String, // product name snapshot
           required: true,
         },
-        attributes: {
-          color: String,
-          size: String,
-          weight: String,
-        },
-        price: {
-          type: Number, // price at time of order
+        variantName: {
+          type: String, // variant name snapshot
           required: true,
         },
-
         quantity: {
           type: Number,
           min: 1,
           required: true,
           default: 1,
+        },
+        priceAtAdd: {
+          type: Number, // price at time of order
+          required: true,
         },
       },
     ],
@@ -53,27 +64,46 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-
-    status: {
+    _paymentMethod: {
       type: String,
-      enum: ["pending", "paid", "shipped", "delivered", "cancelled"],
-      default: "pending",
-    },
-
-    paymentMethod: {
-      type: String,
-      enum: ["cod", "card", "sslcommerz"],
+      enum: [
+        "cod",
+        "card",
+        "online",
+        "upi",
+        "wallet",
+        "emi",
+        "cheque",
+        "other",
+      ],
       default: "cod",
     },
-
     paymentStatus: {
       type: String,
-      enum: ["pending", "paid", "failed"],
+      enum: ["unpaid", "paid", "refunded", "failed"],
+      default: "unpaid",
+    },
+    status: {
+      type: String,
+      enum: ["pending", "shipped", "delivered", "cancelled"],
       default: "pending",
     },
   },
   { timestamps: true },
 );
+
+// user friendly order id
+orderSchema.pre("validate", function () {
+  if(this.isNew){
+    this.orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`; // ex: ORD-1688000000000-123
+  }
+});
+
+orderSchema.pre("save", async function () {
+  if(this.transactionId) {
+    this.paymentStatus = "paid";
+  } 
+})
 
 const Order = mongoose.model("Order", orderSchema);
 

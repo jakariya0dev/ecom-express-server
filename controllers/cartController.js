@@ -1,5 +1,6 @@
 import Cart from "../models/cartModel.js";
 import Variant from "../models/variantModel.js";
+import Product from "../models/productModel.js";
 
 // get cart for user
 export const getCart = async (req, res) => {
@@ -39,8 +40,9 @@ export const addToCart = async (req, res) => {
         data: null,
       });
     }
-    let cart = await Cart.findOne({ user });
+
     const variant = await Variant.findById(variantId);
+    
     if (!variant) {
       return res.status(404).json({
         success: false,
@@ -48,6 +50,17 @@ export const addToCart = async (req, res) => {
         data: null,
       });
     }
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+        data: null,
+      });
+    }
+
+    let cart = await Cart.findOne({ user });
     if (!cart) {
       cart = new Cart({ user, items: [] });
     }
@@ -60,9 +73,21 @@ export const addToCart = async (req, res) => {
     if (itemIndex > -1) {
       cart.items[itemIndex].quantity += quantity;
     } else {
+      // return res.json(variant);
+
+      // return res.json({
+      //   product: productId,
+      //   productName: product.name,
+      //   variant: variantId,
+      //   variantName: variant.sku,
+      //   quantity,
+      //   priceAtAdd: variant.price,
+      // });
       cart.items.push({
         product: productId,
+        productName: product.name,
         variant: variantId,
+        variantName: variant.sku,
         quantity,
         priceAtAdd: variant.price,
       });

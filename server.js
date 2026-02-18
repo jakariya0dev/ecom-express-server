@@ -11,7 +11,7 @@ import categoryRoute from "./routes/categoryRoute.js";
 import productRoute from "./routes/productRoute.js";
 import variantRoute from "./routes/variantRoute.js";
 import cartRoute from "./routes/cartRoute.js";
-// import orderRoute from "./routes/orderRoute.js";
+import orderRoute from "./routes/orderRoute.js";
 // import paymentRoute from "./routes/paymentRoute.js";
 // import shippingRoute from "./routes/shippingRoute.js";
 
@@ -32,7 +32,7 @@ app.use("/api/categories", categoryRoute);
 app.use("/api/products", productRoute);
 app.use("/api/variants", variantRoute);
 app.use("/api/cart", cartRoute);
-// app.use("/api/orders", orderRoute);
+app.use("/api/orders", orderRoute);
 // app.use("/api/payments", paymentRoute);
 // app.use("/api/shippings", shippingRoute);
 

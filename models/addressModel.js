@@ -7,6 +7,10 @@ const addressSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    addressType: {
+      type: String,
+      required: true,
+    },
     name: {
       type: String,
       required: true, // receiver name
