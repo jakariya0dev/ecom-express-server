@@ -7,7 +7,7 @@ import {
     getProductById,
 } from "../controllers/productController.js";
 import { validateMongoId } from "../middlewares/validateId.js";
-import { multerUpload } from "../services/fileUploadServices.js";
+import { multerSingleUpload } from "../services/fileUploadServices.js";
 
 const productRoute = express.Router();
 
@@ -24,12 +24,12 @@ productRoute.get("/:id", validateMongoId, getProductById);
 // @route   POST /api/products/create
 // @desc    store a new product
 // @access  Private
-productRoute.post("/create", multerUpload, createProduct);
+productRoute.post("/create", multerSingleUpload, createProduct);
 
 // @route   PUT api/products/:id
 // @desc    update product category
 // @access  Private
-productRoute.put("/:id", validateMongoId, multerUpload, updateProduct);
+productRoute.put("/:id", validateMongoId, multerSingleUpload, updateProduct);
 
 // @route DELETE api/products/:id
 // @desc delete a product

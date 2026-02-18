@@ -49,3 +49,42 @@ const products = [
     isDigital: true,
   },
 ];
+
+const variants = [
+  {
+  "product": "65d1a2b3c4d5e6f7a8b9c0d1",
+  "sku": "IP15PRO-BLACK-256GB",
+  "options": {
+    "color": "Space Black",
+    "storage": "256GB"
+  },
+  "attributes": [
+    { "key": "Material", "value": "Titanium" }
+  ],
+  "costPrice": 850,
+  "price": 1099,
+  "salePrice": 1049,
+  "stock": 15,
+  "images": [
+    { "url": "https://cloudinary.com/ip15-black.jpg", "publicId": "v_black_01" }
+  ]
+},
+{
+  "product": "65d1a2b3c4d5e6f7a8b9c0d2",
+  "sku": "TEE-NAVY-LARGE",
+  "options": {
+    "color": "Navy Blue",
+    "size": "Large"
+  },
+  "attributes": [
+    { "key": "Fabric", "value": "100% Organic Cotton" }
+  ],
+  "costPrice": 12,
+  "price": 35,
+  "salePrice": 29,
+  "stock": 100,
+  "images": [
+    { "url": "https://cloudinary.com/navy-tee.jpg", "publicId": "v_navy_02" }
+  ]
+}
+];

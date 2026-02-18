@@ -1,4 +1,5 @@
 import Product from "../models/productModel.js";
+import { parseString } from "../utils/safeParse.js";
 
 import {
   deleteImageFromCloudinary,
@@ -10,38 +11,11 @@ export const createProduct = async (req, res) => {
     let productData = { ...req.body };
 
     // ---> For debugging: log the incoming data
-    // return res.status(200).json({
-    //   success: true,
-    //   message: "Received product data",
-    //   data: productData,
-    // });
+    // return res.status(200).json(productData);
 
-    // Handle multer stringified arrays for tags and attributes
-    if (req.body?.tags && typeof req.body.tags === "string") {
-      try{
-        productData.tags = JSON.parse(req.body.tags);
-      }
-      catch(error){
-        console.error("Failed to parse tags JSON:", error.message);
-        return res.status(400).json({
-          success: false,
-          message: "Invalid format for tags. Must be a JSON string.",
-        });
-      }
-    }
-    if (req.body?.attributes && typeof req.body.attributes === "string"){
-      try{
-        productData.attributes = JSON.parse(req.body.attributes);
-      }
-      catch(error){
-        console.error("Failed to parse attributes JSON:", error.message);
-        return res.status(400).json({
-          success: false,
-          message: "Invalid format for attributes. Must be a JSON string.",
-          error: error.message,
-        });
-      }
-    }
+    // Safe Parsing for tags and attributes (if they come as JSON strings)
+    if (productData?.tags) productData.tags = parseString(productData.tags);
+    if (productData?.attributes) productData.attributes = parseString(productData.attributes);
 
     // Handle image upload if file is provided
     if (req.file) {
@@ -125,12 +99,10 @@ export const updateProduct = async (req, res) => {
       if (req.body[field] !== undefined) product[field] = req.body[field];
     });
 
-    // Safe Parsing Helper
-    const safeParse = (data) => (typeof data === "string" ? JSON.parse(data) : data);
-
-    if (req.body.tags) product.tags = safeParse(req.body.tags);
-    if (req.body.attributes) product.attributes = safeParse(req.body.attributes);
-    if (req.body.thumbnail) product.thumbnail = safeParse(req.body.thumbnail);
+    // Safe Parsing with Helper
+    if (req.body.tags) product.tags = parseString(req.body.tags);
+    if (req.body.attributes) product.attributes = parseString(req.body.attributes);
+    if (req.body.thumbnail) product.thumbnail = parseString(req.body.thumbnail);
 
     // Handle Image Update
     if (req.file) {

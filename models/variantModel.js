@@ -7,17 +7,23 @@ const variantSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
-    sku: { type: String, required: true, unique: true },
-    isActive: { type: Boolean, default: true },
+    sku: { type: String, required: true, unique: true }, // Stock Keeping Unit eg: "TSHIRT-BLUE-MEDIUM"},
 
-    // Flexible Options (The "Small/Blue" or "8GB/256GB")
+    // Common options for variants (can be extended as needed)
     options: {
       color: String,
       size: String,
+      weight: String,
       storage: String,
-      ram: String,
-      material: String,
     },
+    
+    // additional attributes
+    attributes: [
+      {
+        key: { type: String, required: true },
+        value: { type: String, required: true },
+      },
+    ],
 
     // Pricing & Finance
     costPrice: { type: Number, required: true }, // Buying price
@@ -34,18 +40,20 @@ const variantSchema = new mongoose.Schema(
 
     // Inventory
     stock: { type: Number, default: 0, min: [0, "Stock cannot be negative"] },
-    weight: Number, // For shipping calculations
-
-    // Images specific to this variant (e.g., the Blue phone photos)
     images: [{ url: String, publicId: String }],
+
+    // status flags
+    isDefault: { type: Boolean, default: false }, // Indicates if this is the default variant for the product
+    isActive: { type: Boolean, default: true }, // Indicates if the variant is active and available for purchase
+    isDeleted: { type: Boolean, default: false }, // Soft delete flag
   },
   { timestamps: true },
 );
 
 // Prevent duplicate variants (e.g., can't have two "Blue, 128GB" for same product)
 variantSchema.index(
-  { product: 1, "options.color": 1, "options.storage": 1, "options.size": 1 },
-  { unique: true },
+  { product: 1, "options.color": 1, "options.weight": 1, "options.size": 1, "options.storage": 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } },
 );
 
 export default mongoose.model("Variant", variantSchema);
