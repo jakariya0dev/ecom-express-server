@@ -1,7 +1,6 @@
 import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
 import { sendEmail, optEmailTemplate } from "../services/emailService.js";
 import {
   generateAccessToken,
@@ -22,7 +21,7 @@ export const userRegisterController = async (req, res) => {
         message: "Name, email and password are required",
       });
     }
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -31,7 +30,7 @@ export const userRegisterController = async (req, res) => {
     }
 
     // generate a 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // OTP valid for 10 minutes
 
     // hashed password and otp with bcrypt
@@ -89,7 +88,15 @@ export const verifyEmailController = async (req, res) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(otp, user.otp);
+    
+    if (user.otpExpires < Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired",
+      });
+    }
+
+    const isMatch = bcrypt.compare(otp, user.otp);
 
     if (!isMatch) {
       return res.status(400).json({
@@ -98,12 +105,6 @@ export const verifyEmailController = async (req, res) => {
       });
     }
 
-    if (user.otpExpires < Date.now()) {
-      return res.status(400).json({
-        success: false,
-        message: "OTP has expired",
-      });
-    }
 
     user.verified = true;
     user.otp = null;
@@ -190,7 +191,7 @@ export const userLoginController = async (req, res) => {
       expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     };
 
     // send response
@@ -252,7 +253,7 @@ export const resendOtpController = async (req, res) => {
     }
 
     // generate a new OTP
-    const otp = Math.floor(100000 + Math.random() * 900000);
+    const otp = crypto.randomInt(100000, 999999);
     const salt = await bcrypt.genSalt(10);
     const hashedOtp = await bcrypt.hash(otp.toString(), salt);
     user.otp = hashedOtp;
@@ -290,13 +291,12 @@ export const userLogoutController = async (req, res) => {
     }
 
     const user = await User.findById(req.user._id);
-    user.refreshTokens = user.refreshTokens.filter((t) => t !== token);
+    user.refreshTokens = user.refreshTokens.filter((t) => t !== refreshToken);
     await user.save();
 
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
     });
 
     res.status(200).json({
@@ -316,7 +316,7 @@ export const userLogoutController = async (req, res) => {
 export const userRefreshTokenController = async (req, res) => {
   try {
     // get user input
-    const refreshToken  = req.cookies.refreshToken || req.body.refreshToken;
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
     // check if token is provided
     if (!refreshToken) {
@@ -355,19 +355,19 @@ export const userRefreshTokenController = async (req, res) => {
     );
 
     // Issue new tokens
-    const newAccessToken = generateAccessToken({ userId: user._id });
-    const newRefreshToken = generateRefreshToken({ userId: user._id });
+    const newAccessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken(user);
 
     user.refreshTokens.push(newRefreshToken);
     await user.save();
 
-    const cookiesOptions = {
+    const cookieOptions = {
       expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     };
-    res.cookie("refreshToken", newRefreshToken, cookiesOptions);
+    res.cookie("refreshToken", newRefreshToken, cookieOptions);
 
     // send response
     res.status(200).json({
@@ -397,8 +397,7 @@ export const forgotPasswordController = async (req, res) => {
       });
     }
 
-    const user = await User.findOne(
-      { email },
+    const user = await User.findOne({ email }).select(
       "+resetPasswordToken +resetPasswordExpires",
     );
 
@@ -455,8 +454,7 @@ export const resetPasswordController = async (req, res) => {
       });
     }
 
-    const user = await User.findOne(
-      { email },
+    const user = await User.findOne({ email }).select(
       "+resetPasswordToken +resetPasswordExpires",
     );
     // return res.status(200).json(user);

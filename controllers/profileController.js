@@ -1,5 +1,4 @@
-import { use } from "react";
-import User from "../models/userModel.js";
+import User from "../models/userModel.js";import User from "../models/userModel.js";
 import { uploadImageToCloudinary } from "../services/fileUploadServices.js";
 import bcrypt from "bcryptjs";
 

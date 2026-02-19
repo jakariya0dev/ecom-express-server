@@ -66,6 +66,13 @@ export const updateAddress = async (req, res) => {
       });
     }
 
+    if (address.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to update this address",
+        data: null,
+      });
+    }    
     if (addressType) address.addressType = addressType;
     if (receiverName) address.receiverName = receiverName;
     if (receiverPhone) address.receiverPhone = receiverPhone;
@@ -105,7 +112,16 @@ export const deleteAddress = async (req, res) => {
       });
     }
 
-    await address.remove();
+    // check ownership of address
+    if (address.user.toString() !== req.user._id) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to delete this address",
+        data: null,
+      });
+    }
+
+    await address.deleteOne();
 
     res.status(200).json({
       success: true,
@@ -131,6 +147,14 @@ export const getAddress = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Address not found",
+        data: null,
+      });
+    }
+
+    if (address.user.toString() !== req.user._id) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to view this address",
         data: null,
       });
     }
