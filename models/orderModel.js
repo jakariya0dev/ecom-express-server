@@ -100,7 +100,7 @@ orderSchema.pre("validate", function () {
 });
 
 orderSchema.pre("save", async function () {
-  if(this.transactionId) {
+  if(this.transactionId && this.isModified("transactionId")) {
     this.paymentStatus = "paid";
   } 
 })

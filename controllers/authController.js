@@ -3,7 +3,12 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { sendEmail, optEmailTemplate } from "../services/emailService.js";
-import { generateAccessToken, generateHashedPassword, generateRefreshToken, generateOtpAndHashToken } from "../utils/auth.js";
+import {
+  generateAccessToken,
+  generateHashedPassword,
+  generateRefreshToken,
+  generateOtpAndHashToken,
+} from "../utils/auth.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -153,10 +158,14 @@ export const userLoginController = async (req, res) => {
     }
 
     // check if user is blocked
-    if (user.status === "inactive" || user.status === "suspended") {
+    if (
+      user.status === "inactive" ||
+      user.status === "suspended" ||
+      user.status === "blocked"
+    ) {
       return res.status(400).json({
         success: false,
-        message: "This account has been blocked, contact support",
+        message: `Your account has been ${user.status}. Please contact support for more information.`,
       });
     }
 
@@ -171,25 +180,24 @@ export const userLoginController = async (req, res) => {
       });
     }
 
-    // create and assign token
-    const token = jwt.sign(
-      {
-        userId: user._id,
-        email: user.email,
-        role: user.role,
-      },
-      process.env.JWT_ACCESS_SECRET,
-      {
-        expiresIn: "7d",
-      },
-    );
-    user.refreshTokens.push(token);
+    // create and store token
+    const refreshToken = generateRefreshToken(user);
+    const accessToken = generateAccessToken(user);
+    user.refreshTokens.push(refreshToken);
     await user.save();
 
+    const cookieOptions = {
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+    };
+
     // send response
-    res.status(200).json({
+    res.status(200).cookie("refreshToken", refreshToken, cookieOptions).json({
       success: true,
-      token,
+      accessToken,
+      refreshToken,
     });
   } catch (error) {
     console.error("Error logging in user:", error);
@@ -271,19 +279,25 @@ export const resendOtpController = async (req, res) => {
 export const userLogoutController = async (req, res) => {
   try {
     // get user input
-    const { userId, token } = req.body;
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
     // check if userId is provided
-    if (!userId) {
+    if (!refreshToken) {
       return res.status(400).json({
         success: false,
-        message: "User ID is required",
+        message: "Refresh token is required",
       });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findById(req.user._id);
     user.refreshTokens = user.refreshTokens.filter((t) => t !== token);
     await user.save();
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+    });
 
     res.status(200).json({
       success: true,
@@ -298,12 +312,11 @@ export const userLogoutController = async (req, res) => {
   }
 };
 
-
 // refresh token
 export const userRefreshTokenController = async (req, res) => {
   try {
     // get user input
-    const { refreshToken } = req.body;
+    const refreshToken  = req.cookies.refreshToken || req.body.refreshToken;
 
     // check if token is provided
     if (!refreshToken) {
@@ -316,7 +329,7 @@ export const userRefreshTokenController = async (req, res) => {
     // check if token is valid
     let decoded;
     try {
-      decoded = jwt.verify(refreshToken, REFRESH_SECRET);
+      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     } catch (err) {
       return res.status(401).json({ message: "Invalid refresh token" });
     }
@@ -331,20 +344,30 @@ export const userRefreshTokenController = async (req, res) => {
         await user.save();
       }
 
-      return res.status(403).json({ success: false, message: "Token reuse detected" });
+      return res
+        .status(403)
+        .json({ success: false, message: "Token reuse detected" });
     }
 
     //Rotate token (invalidate old)
     user.refreshTokens = user.refreshTokens.filter(
-      (token) => token !== refreshToken
+      (token) => token !== refreshToken,
     );
 
     // Issue new tokens
-    const newAccessToken = generateAccessToken({ id: user._id, email: user.email, role: user.role });
-    const newRefreshToken = generateRefreshToken({id: user._id, email: user.email, role: user.role });
+    const newAccessToken = generateAccessToken({ userId: user._id });
+    const newRefreshToken = generateRefreshToken({ userId: user._id });
 
     user.refreshTokens.push(newRefreshToken);
     await user.save();
+
+    const cookiesOptions = {
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+    };
+    res.cookie("refreshToken", newRefreshToken, cookiesOptions);
 
     // send response
     res.status(200).json({
@@ -353,7 +376,6 @@ export const userRefreshTokenController = async (req, res) => {
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
     });
-
   } catch (error) {
     console.error("Error refreshing token:", error);
     res.status(500).json({
@@ -375,7 +397,10 @@ export const forgotPasswordController = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email }, "+resetPasswordToken +resetPasswordExpires");
+    const user = await User.findOne(
+      { email },
+      "+resetPasswordToken +resetPasswordExpires",
+    );
 
     // prevent email spoofing
     if (!user) {
@@ -386,10 +411,7 @@ export const forgotPasswordController = async (req, res) => {
     }
 
     // prevent OTP spamming
-    if (
-      user.resetPasswordToken &&
-      user.resetPasswordExpires > Date.now()
-    ) {
+    if (user.resetPasswordToken && user.resetPasswordExpires > Date.now()) {
       return res.status(200).json({
         success: true,
         // message: "If the email exists, an OTP has been sent",
@@ -404,11 +426,7 @@ export const forgotPasswordController = async (req, res) => {
 
     await user.save();
 
-    await sendEmail(
-      user.email,
-      "Password Reset OTP",
-      optEmailTemplate(otp)
-    );
+    await sendEmail(user.email, "Password Reset OTP", optEmailTemplate(otp));
 
     return res.status(200).json({
       success: true,
@@ -422,7 +440,6 @@ export const forgotPasswordController = async (req, res) => {
     });
   }
 };
-
 
 // reset password
 export const resetPasswordController = async (req, res) => {
@@ -438,7 +455,10 @@ export const resetPasswordController = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email }, "+resetPasswordToken +resetPasswordExpires");
+    const user = await User.findOne(
+      { email },
+      "+resetPasswordToken +resetPasswordExpires",
+    );
     // return res.status(200).json(user);
 
     // check if user exists and OTP is valid and not expired

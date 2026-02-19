@@ -11,11 +11,11 @@ const addressSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    name: {
+    receiverName: {
       type: String,
       required: true, // receiver name
     },
-    phone: {
+    receiverPhone: {
       type: String,
       required: true, // receiver phone number
     },

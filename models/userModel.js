@@ -30,12 +30,12 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['user', 'admin'],
+        enum: ['user', 'admin', 'superadmin', 'staff', 'manager', 'deliveryman'],
         default: 'user',
     },
     status: {
         type: String,
-        enum: ['active', 'inactive', 'suspended'],
+        enum: ['active', 'inactive', 'suspended', 'blocked'],
         default: 'active',
     },
     refreshTokens: {
