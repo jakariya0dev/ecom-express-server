@@ -41,6 +41,22 @@ app.get("/", (req, res) => {
   res.send("Welcome to the API");
 });
 
+// Route not exist middleware
+app.use((req, res, next) => {
+  const error = new Error("Route not found");
+  error.status = 404;
+  next(error);
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  const statusCode = err.status || 500;
+  res.status(statusCode).json({
+    success: false,
+    message: err.message || "Something went wrong!",
+  });
+});
 // connect to database and start the server
 const PORT = process.env.PORT || 5000;
 connectDB().then(() => {
