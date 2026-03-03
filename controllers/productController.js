@@ -12,10 +12,13 @@ export const createProduct = async (req, res) => {
 
     // ---> For debugging: log the incoming data
     // return res.status(200).json(productData);
+    // console.log(productData);
+    // return res.status(200).json(productData);
 
     // Safe Parsing for tags and attributes (if they come as JSON strings)
-    if (productData?.tags) productData.tags = parseString(productData.tags);
-    if (productData?.attributes) productData.attributes = parseString(productData.attributes);
+    if (productData?.tags) productData.tags = productData.tags.split(",");
+    if (productData?.attributes)
+      productData.attributes = parseString(productData.attributes);
 
     // Handle image upload if file is provided
     if (req.file) {
@@ -32,6 +35,8 @@ export const createProduct = async (req, res) => {
       product: product,
     });
   } catch (error) {
+    console.log(error.message);
+
     res
       .status(500)
       .json({ message: "Error creating product", error: error.message });
@@ -40,14 +45,14 @@ export const createProduct = async (req, res) => {
 
 export const getAllProducts = async (req, res) => {
   try {
-    const product = await Product.find({
+    const products = await Product.find({
       isDeleted: false,
       isActive: true,
     }).populate("category", "name");
     res.status(200).json({
       success: true,
       message: "All products fetched successfully",
-      product,
+      products,
     });
   } catch (error) {
     res.status(500).json({
@@ -61,7 +66,12 @@ export const getProductById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const product = await Product.findById(id);
+    const product = await Product.findById(id)
+      .populate("category")
+      .populate({
+        path: "variants",
+        match: { isDeleted: false, isActive: true },
+      });
     if (!product) {
       return res
         .status(404)
@@ -86,13 +96,22 @@ export const updateProduct = async (req, res) => {
   try {
     const product = await Product.findById(id);
     if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
     }
 
     // List of keys to update directly from req.body
     const fields = [
-      "name", "shortDescription", "longDescription", "brand", 
-      "category", "videoUrl", "isFeatured", "isActive", "isDigital"
+      "name",
+      "shortDescription",
+      "longDescription",
+      "brand",
+      "category",
+      "videoUrl",
+      "isFeatured",
+      "isActive",
+      "isDigital",
     ];
 
     fields.forEach((field) => {
@@ -101,7 +120,8 @@ export const updateProduct = async (req, res) => {
 
     // Safe Parsing with Helper
     if (req.body.tags) product.tags = parseString(req.body.tags);
-    if (req.body.attributes) product.attributes = parseString(req.body.attributes);
+    if (req.body.attributes)
+      product.attributes = parseString(req.body.attributes);
     if (req.body.thumbnail) product.thumbnail = parseString(req.body.thumbnail);
 
     // Handle Image Update
@@ -109,15 +129,15 @@ export const updateProduct = async (req, res) => {
       // Store old ID
       const oldPublicId = product.thumbnail?.publicId;
 
-      //  Upload new image 
+      //  Upload new image
       const imageData = await uploadImageToCloudinary(req.file, "products");
       product.thumbnail = imageData;
 
       //  Delete old image only if upload succeeded and old ID exists
       if (oldPublicId) {
         // Don't 'await' this so the user doesn't wait for Cloudinary's slow delete
-        deleteImageFromCloudinary(oldPublicId).catch(err => 
-          console.error("Cloudinary Cleanup Failed:", err.message)
+        deleteImageFromCloudinary(oldPublicId).catch((err) =>
+          console.error("Cloudinary Cleanup Failed:", err.message),
         );
       }
     }
@@ -139,7 +159,6 @@ export const updateProduct = async (req, res) => {
 };
 
 export const deleteProduct = async (req, res) => {
-
   try {
     const { id } = req.params;
     const product = await Product.findById(id);

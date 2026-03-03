@@ -19,12 +19,12 @@ categoryRoute.post("/create", multerSingleUpload, createCategory);
 // @route   PUT /api/categories/update/:id
 // @desc    Update category by ID
 // @access  Private
-categoryRoute.put("/update/:id", multerSingleUpload, updateCategory);
+categoryRoute.put("/:id", multerSingleUpload, updateCategory);
 
 // @route   DELETE /api/categories/delete/:id
 // @desc    Delete category by ID
 // @access  Private
-categoryRoute.delete("/delete/:id", deleteCategory);
+categoryRoute.delete("/:id", deleteCategory);
 
 // @route   GET /api/categories/sub/:parentId
 // @desc    Get all sub categories

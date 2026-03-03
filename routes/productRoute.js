@@ -14,7 +14,7 @@ const productRoute = express.Router();
 // @route   GET /api/products/all
 // @desc    fetch all products
 // @access  Public
-productRoute.get("/all", getAllProducts);
+productRoute.get("/", getAllProducts);
 
 // @route   GET /api/products/:id
 // @desc    fetch a single product by ID
@@ -35,4 +35,5 @@ productRoute.put("/:id", validateMongoId, multerSingleUpload, updateProduct);
 // @desc delete a product
 // @access Private
 productRoute.delete("/:id", validateMongoId, deleteProduct);
+
 export default productRoute;

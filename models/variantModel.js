@@ -16,7 +16,7 @@ const variantSchema = new mongoose.Schema(
       weight: String,
       storage: String,
     },
-    
+
     // additional attributes
     attributes: [
       {
@@ -30,12 +30,12 @@ const variantSchema = new mongoose.Schema(
     price: { type: Number, required: true }, // Selling price
     salePrice: {
       type: Number,
-      validate: {
-        validator: function (v) {
-          return v <= this.price;
-        },
-        message: "Sale price must be less than regular price",
-      },
+      // validate: {
+      //   validator: function (v) {
+      //     return v <= this.price;
+      //   },
+      //   message: "Sale price must be less than regular price",
+      // },
     }, // Discounted price
 
     // Inventory
@@ -52,7 +52,13 @@ const variantSchema = new mongoose.Schema(
 
 // Prevent duplicate variants (e.g., can't have two "Blue, 128GB" for same product)
 variantSchema.index(
-  { product: 1, "options.color": 1, "options.weight": 1, "options.size": 1, "options.storage": 1 },
+  {
+    product: 1,
+    "options.color": 1,
+    "options.weight": 1,
+    "options.size": 1,
+    "options.storage": 1,
+  },
   { unique: true, partialFilterExpression: { isDeleted: false } },
 );
 

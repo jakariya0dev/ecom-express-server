@@ -6,12 +6,13 @@ import morgan from "morgan";
 import helmet from "helmet";
 
 // import routes
-import userRoute from "./routes/userRoute.js";
+import authRoute from "./routes/authRoute.js";
 import categoryRoute from "./routes/categoryRoute.js";
 import productRoute from "./routes/productRoute.js";
 import variantRoute from "./routes/variantRoute.js";
 import cartRoute from "./routes/cartRoute.js";
 import orderRoute from "./routes/orderRoute.js";
+import userRoute from "./routes/userRoute.js";
 // import paymentRoute from "./routes/paymentRoute.js";
 // import shippingRoute from "./routes/shippingRoute.js";
 
@@ -20,12 +21,16 @@ const app = express();
 
 // middleware
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: "http://localhost:3000",
+  credentials: true
+}));
+
 app.use(morgan("dev"));
 app.use(helmet());
 
 // routes
-app.use("/api/users", userRoute);
+app.use("/api/auth", authRoute);
 
 // Admin Dashboard Routes
 app.use("/api/categories", categoryRoute);
@@ -33,6 +38,7 @@ app.use("/api/products", productRoute);
 app.use("/api/variants", variantRoute);
 app.use("/api/cart", cartRoute);
 app.use("/api/orders", orderRoute);
+app.use("/api/users", userRoute);
 // app.use("/api/payments", paymentRoute);
 // app.use("/api/shippings", shippingRoute);
 
@@ -57,6 +63,7 @@ app.use((err, req, res, next) => {
     message: err.message || "Something went wrong!",
   });
 });
+
 // connect to database and start the server
 const PORT = process.env.PORT || 5000;
 connectDB().then(() => {

@@ -1,4 +1,4 @@
-import { get, mongo } from "mongoose";
+import { mongo } from "mongoose";
 import Category from "../models/categoryModel.js";
 import {
   uploadImageToCloudinary,
@@ -11,6 +11,12 @@ export const createCategory = async (req, res) => {
 
     if (!name.trim()) {
       return res.status(400).json({ message: "Category name required" });
+    }
+
+    // check if category name already exists
+    const existingCategory = await Category.findOne({ name });
+    if (existingCategory) {
+      return res.status(400).json({ message: "Category name already exists" });
     }
 
     const imageData = req.file ? await uploadImageToCloudinary(req.file, "categories") : null;
@@ -26,6 +32,7 @@ export const createCategory = async (req, res) => {
 
     res.status(201).json({
       success: true,
+      message: "Category created successfully",
       category,
     });
   } catch (err) {
@@ -39,6 +46,7 @@ export const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, order, isActive, parent } = req.body;
+    
     const category = await Category.findById(id);
 
     if (!category) {
@@ -65,11 +73,12 @@ export const updateCategory = async (req, res) => {
 
     // Update parent
     if (parent !== undefined) {
-      category.parent = parent || null;
+      category.parent = parent;
     }
 
+
     // prevent circular reference when setting parent
-    if (category.parent && category.parent.toString() === category._id.toString()) {
+    if (category.parent && category.parent.toString() === category.id.toString()) {
       return res.status(400).json({
         success: false,
         message: "Category cannot be its own parent",
@@ -91,6 +100,7 @@ export const updateCategory = async (req, res) => {
 
     }
 
+    await category.save();
 
     res.status(200).json({
       success: true,
@@ -155,6 +165,7 @@ export const getCategories = async (req, res) => {
   try {
     const categories = await Category.find({ isActive: true })
       .populate("parent", "name")
+      .populate("product")
       .sort({ order: 1 });
 
     res.status(200).json({

@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../models/User.js"; 
+import User from "../models/userModel.js"; 
 
 // is logged in
 export const isAuthenticated = async (req, res, next) => {

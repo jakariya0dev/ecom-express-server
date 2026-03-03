@@ -1,5 +1,6 @@
 import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { sendEmail, optEmailTemplate } from "../services/emailService.js";
 import {
@@ -18,7 +19,7 @@ export const userRegisterController = async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Name, email and password are required",
+        message: "First name, last name, email and password are required",
       });
     }
     const existingUser = await User.findOne({ email: email.toLowerCase() });
@@ -50,7 +51,7 @@ export const userRegisterController = async (req, res) => {
 
     // send email with OTP
     const emailContent = optEmailTemplate(otp);
-    await sendEmail(email, "OTP for Email Verification", emailContent);
+    // await sendEmail(email, "OTP for Email Verification", emailContent);
 
     res.status(201).json({
       success: true,
@@ -88,7 +89,6 @@ export const verifyEmailController = async (req, res) => {
       });
     }
 
-    
     if (user.otpExpires < Date.now()) {
       return res.status(400).json({
         success: false,
@@ -104,7 +104,6 @@ export const verifyEmailController = async (req, res) => {
         message: "Invalid OTP",
       });
     }
-
 
     user.verified = true;
     user.otp = null;
@@ -150,6 +149,17 @@ export const userLoginController = async (req, res) => {
       });
     }
 
+    // match password
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    // check if password is correct
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
     // check if user is verified
     if (!user.verified) {
       return res.status(400).json({
@@ -170,35 +180,32 @@ export const userLoginController = async (req, res) => {
       });
     }
 
-    // match password
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    // check if password is correct
-    if (!isMatch) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
-
     // create and store token
     const refreshToken = generateRefreshToken(user);
     const accessToken = generateAccessToken(user);
     user.refreshTokens.push(refreshToken);
     await user.save();
 
-    const cookieOptions = {
-      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    };
+      secure: false,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
     // send response
-    res.status(200).cookie("refreshToken", refreshToken, cookieOptions).json({
+    res.status(200).json({
       success: true,
-      accessToken,
-      refreshToken,
+      message: "User logged in successfully",
     });
   } catch (error) {
     console.error("Error logging in user:", error);
@@ -316,7 +323,7 @@ export const userLogoutController = async (req, res) => {
 export const userRefreshTokenController = async (req, res) => {
   try {
     // get user input
-    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+    const refreshToken = req.cookies.refreshToken;
 
     // check if token is provided
     if (!refreshToken) {
@@ -331,7 +338,10 @@ export const userRefreshTokenController = async (req, res) => {
     try {
       decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     } catch (err) {
-      return res.status(401).json({ message: "Invalid refresh token" });
+      return res.status(401).json({
+        success: false,
+        message: "Invalid refresh token",
+      });
     }
 
     // Find user AND token
@@ -346,7 +356,7 @@ export const userRefreshTokenController = async (req, res) => {
 
       return res
         .status(403)
-        .json({ success: false, message: "Token reuse detected" });
+        .json({ success: false, message: "Invalid refresh token" });
     }
 
     //Rotate token (invalidate old)
@@ -361,13 +371,19 @@ export const userRefreshTokenController = async (req, res) => {
     user.refreshTokens.push(newRefreshToken);
     await user.save();
 
-    const cookieOptions = {
-      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    res.cookie("accessToken", newAccessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    };
-    res.cookie("refreshToken", newRefreshToken, cookieOptions);
+      secure: false,
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
     // send response
     res.status(200).json({
@@ -375,6 +391,7 @@ export const userRefreshTokenController = async (req, res) => {
       message: "Token refreshed successfully",
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
+      user: user,
     });
   } catch (error) {
     console.error("Error refreshing token:", error);
@@ -504,3 +521,7 @@ export const resetPasswordController = async (req, res) => {
     });
   }
 };
+
+// fetch user data by token
+
+export const getUser = async (req, res) => {};

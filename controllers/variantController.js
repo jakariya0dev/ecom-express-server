@@ -7,52 +7,69 @@ import { parseString } from "../utils/safeParse.js";
 
 // Create a new variant
 export const createVariant = async (req, res) => {
-
-  // ---> DEBUGGING PURPOSES ONLY <---
-  // return res.send("This is a placeholder response for createVariant endpoint.");
+  let uploadedImagesData = [];
 
   try {
-    const variantData = {...req.body};
-    // return res.status(200).json(variantData);
-    if (
-      !variantData.product ||
-      !variantData.sku ||
-      !variantData.costPrice ||
-      !variantData.price
-    ) {
+    const variantData = { ...req.body };
+
+    // Required Field Validation
+    const required = ["product", "sku", "costPrice", "price"];
+    const missing = required.filter((field) => !variantData[field]);
+
+    if (missing.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: productId, sku, costPrice, price",
-        data: null,
+        message: `Missing required fields: ${missing.join(", ")}`,
       });
     }
 
-    // parse option and attr if provided as JSON string
-    if (variantData.attributes)
-      variantData.attributes = parseString(variantData.attributes);
-    if (variantData.options)
-      variantData.options = parseString(variantData.options);
+    // 2. Parse JSON strings (FormData sends strings)
+    if (typeof variantData.attributes === "string")
+      variantData.attributes = JSON.parse(variantData.attributes);
+    if (typeof variantData.options === "string")
+      variantData.options = JSON.parse(variantData.options);
 
-    // upload images to Cloudinary and get URLs
-    let uploadedImagesData = [];
+    // 3. Handle Images
     if (req.files && req.files.length > 0) {
       const imageUploadPromises = req.files.map((file) =>
         uploadImageToCloudinary(file, "variants"),
       );
+      // Stores [{url, publicId}, ...]
       uploadedImagesData = await Promise.all(imageUploadPromises);
     }
+
     variantData.images = uploadedImagesData;
 
+    // 4. Create Variant
     const newVariant = await Variant.create(variantData);
+
     res.status(201).json({
       success: true,
       message: "Variant created successfully",
       data: newVariant,
     });
   } catch (error) {
-    res
-      .status(400)
-      .json({ message: "Failed to create variant", error: error.message });
+    // 5. ROLLBACK: Delete images from Cloudinary if DB save fails
+    if (uploadedImagesData.length > 0) {
+      const deletePromises = uploadedImagesData.map((img) =>
+        deleteImageFromCloudinary(img.publicId),
+      );
+      await Promise.all(deletePromises);
+    }
+
+    // Check for Mongoose Duplicate Key Error (SKU)
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "A variant with this SKU or combination already exists.",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to create variant",
+      error: error.message,
+    });
   }
 };
 
@@ -60,7 +77,11 @@ export const createVariant = async (req, res) => {
 export const getVariantsByProduct = async (req, res) => {
   try {
     const { productId } = req.params;
-    const variants = await Variant.find({ product: productId, isDeleted: false, isActive: true });
+    const variants = await Variant.find({
+      product: productId,
+      isDeleted: false,
+      isActive: true,
+    });
     res.status(200).json({
       success: true,
       message: "Variants fetched successfully",
@@ -79,7 +100,11 @@ export const getVariantsByProduct = async (req, res) => {
 export const getVariantById = async (req, res) => {
   try {
     const { id } = req.params;
-    const variant = await Variant.findOne({ _id: id, isDeleted: false, isActive: true });
+    const variant = await Variant.findOne({
+      _id: id,
+      isDeleted: false,
+      isActive: true,
+    });
     if (!variant) {
       return res.status(404).json({
         success: false,
@@ -107,22 +132,25 @@ export const updateVariant = async (req, res) => {
     const { id } = req.params;
     const variantData = { ...req.body };
 
+    // return res.status(200).json(variantData);
+
+    // Fetch existing variant to get current images
+    const existingVariant = await Variant.findById(id);
+    if (!existingVariant) {
+      return res.status(404).json({
+        success: false,
+        message: "Variant not found",
+        data: null,
+      });
+    }
+
     // parse option and attr if provided as JSON string
     if (variantData.attributes)
       variantData.attributes = parseString(variantData.attributes);
     if (variantData.options)
       variantData.options = parseString(variantData.options);
 
-    // Fetch existing variant to get current images
-    const existingVariant = await Variant.findById(id);
-    if(!existingVariant){
-      return res.status(404).json({
-        success: false,        
-        message: "Variant not found",
-        data: null,
-      })
-    }
-    const existingImages = existingVariant.images || [];
+    const images = existingVariant.images || [];
 
     // Handle image uploads if new images are provided
     if (req.files && req.files.length > 0) {
@@ -130,13 +158,16 @@ export const updateVariant = async (req, res) => {
         uploadImageToCloudinary(file, "variants"),
       );
       const uploadedImagesData = await Promise.all(imageUploadPromises);
-      variantData.images = [...existingImages, ...uploadedImagesData];
+      variantData.images = [...images, ...uploadedImagesData];
     }
 
-    const updatedVariant = await Variant.findByIdAndUpdate(id, variantData, {
-      new: true,
-      runValidators: true,
-    });
+    const updatedVariant = await Variant.findByIdAndUpdate(
+       id,
+      {
+        $set: variantData,
+      },
+      { new: true },
+    );
 
     if (!updatedVariant) {
       return res.status(404).json({
@@ -148,10 +179,12 @@ export const updateVariant = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Variant updated successfully",
-      data: updatedVariant,
+      message: "Variant updated successfully!",
+      data: variantData,
     });
   } catch (error) {
+    console.log(error.message);
+    
     res.status(400).json({
       success: false,
       message: "Failed to update variant",
@@ -172,8 +205,17 @@ export const deleteVariant = async (req, res) => {
         data: null,
       });
     }
+
+    // delete images from Cloudinary
+    const deletePromises = variant.images.map((img) =>
+      deleteImageFromCloudinary(img.publicId),
+    );
+    await Promise.all(deletePromises);
+
     // Soft delete: set isDeleted to true
     variant.isDeleted = true;
+    variant.isActive = false;
+    variant.images = [];
     await variant.save();
 
     res.status(200).json({
@@ -220,12 +262,14 @@ export const toggleVariantActiveStatus = async (req, res) => {
 export const removeImageFromVariant = async (req, res) => {
   try {
     const { variantId } = req.params;
-    const { publicId } = req.body;
+    const { publicId } = req.query;
+
+    // return res.json({ variantId, publicId });
 
     if (!variantId || !publicId) {
       return res.status(400).json({
         success: false,
-        message: "set variantId as path param and publicId in request body to delete image",
+        message: "Missing variantId or publicId",
         data: null,
       });
     }
@@ -264,6 +308,7 @@ export const removeImageFromVariant = async (req, res) => {
       data: variant,
     });
   } catch (error) {
+    console.log(error);
     res.status(400).json({
       success: false,
       message: "Failed to delete image",

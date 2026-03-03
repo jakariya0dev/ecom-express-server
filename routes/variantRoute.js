@@ -9,6 +9,7 @@ import {
   toggleVariantActiveStatus,
 } from "../controllers/variantController.js";
 import { multerMultipleUpload } from "../services/fileUploadServices.js";
+import { validateMongoId } from "../middlewares/validateId.js";
 
 const variantRoute = express.Router();
 
@@ -25,22 +26,22 @@ variantRoute.get("/product/:productId", getVariantsByProduct);
 // @route   GET /api/variants/:id
 // @desc    Get a single variant by ID
 // @access  Public
-variantRoute.get("/:id", getVariantById);
+variantRoute.get("/:id", validateMongoId, getVariantById);
 
 // @route   PUT /api/variants/:id
 // @desc    Update a variant by ID
 // @access  Private (admin)
-variantRoute.put("/:id", updateVariant);
+variantRoute.put("/:id", [validateMongoId, multerMultipleUpload], updateVariant);
 
 // @route   DELETE /api/variants/:id
 // @desc    Delete a variant by ID
 // @access  Private (admin)
-variantRoute.delete("/:id", deleteVariant);
+variantRoute.delete("/:id", validateMongoId, deleteVariant);
 
 // @route   DELETE /api/variants/:variantId/image/:publicId
 // @desc    Remove an image from a variant
 // @access  Private (admin)
-variantRoute.delete("/image/:variantId", removeImageFromVariant);
+variantRoute.delete("/:variantId/image", removeImageFromVariant);
 
 // @route   PATCH /api/variants/:id/toggle-active
 // @desc    Toggle active status of a variant

@@ -9,7 +9,6 @@ const categorySchema = new mongoose.Schema(
       trim: true,
       unique: true,
     },
-
     slug: {
       type: String,
       required: true,
@@ -21,12 +20,10 @@ const categorySchema = new mongoose.Schema(
       ref: "Category",
       default: null,
     },
-
     isActive: {
       type: Boolean,
       default: true,
     },
-
     order: {
       type: Number,
       default: 0,
@@ -48,6 +45,17 @@ categorySchema.pre("validate", function () {
     });
   }
 });
+
+// In your Category Model file
+categorySchema.virtual("product", {
+  ref: "Product",        // The model to use
+  localField: "_id",     // Find products where "localField"
+  foreignField: "category", // is equal to "foreignField"
+});
+
+// Ensure virtuals are included when converting to JSON
+categorySchema.set("toJSON", { virtuals: true });
+categorySchema.set("toObject", { virtuals: true });
 
 const Category = mongoose.model("Category", categorySchema);
 
