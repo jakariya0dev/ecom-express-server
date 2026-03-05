@@ -46,6 +46,7 @@ const variantSchema = new mongoose.Schema(
     isDefault: { type: Boolean, default: false }, // Indicates if this is the default variant for the product
     isActive: { type: Boolean, default: true }, // Indicates if the variant is active and available for purchase
     isDeleted: { type: Boolean, default: false }, // Soft delete flag
+    deleteAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

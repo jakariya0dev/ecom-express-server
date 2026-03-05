@@ -111,9 +111,16 @@ export const getUsers = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
+    // get total count of users
+    const totalCount = await User.countDocuments(filter);
+
     res.status(200).json({
       success: true,
       message: "Users fetched successfully",
+      currentPage: Number(page),
+      limit: Number(limit),
+      count: totalCount,
+      totalPages: Math.ceil(totalCount / limit),
       data: users,
     });
   } catch (error) {

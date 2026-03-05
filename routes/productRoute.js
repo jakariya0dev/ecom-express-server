@@ -1,10 +1,11 @@
 import express from "express";
 import {
   createProduct,
-  getAllProducts,
+  getProducts,
   updateProduct,
   deleteProduct,
     getProductById,
+    toggleProductFeaturedStatus
 } from "../controllers/productController.js";
 import { validateMongoId } from "../middlewares/validateId.js";
 import { multerSingleUpload } from "../services/fileUploadServices.js";
@@ -14,7 +15,7 @@ const productRoute = express.Router();
 // @route   GET /api/products/all
 // @desc    fetch all products
 // @access  Public
-productRoute.get("/", getAllProducts);
+productRoute.get("/", getProducts);
 
 // @route   GET /api/products/:id
 // @desc    fetch a single product by ID
@@ -35,5 +36,10 @@ productRoute.put("/:id", validateMongoId, multerSingleUpload, updateProduct);
 // @desc delete a product
 // @access Private
 productRoute.delete("/:id", validateMongoId, deleteProduct);
+
+// Route POST api/product/toggle-featured/:id
+// @desc toggle featured status of a product
+// @access Private
+productRoute.put("/toggle-featured/:id", validateMongoId, toggleProductFeaturedStatus);
 
 export default productRoute;

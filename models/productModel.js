@@ -32,8 +32,9 @@ const productSchema = new mongoose.Schema(
     // Status
     isFeatured: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true }, // For visibility control
-    isDeleted: { type: Boolean, default: false }, // Soft delete flag
     isDigital: { type: Boolean, default: false }, // True for software/ebooks
+    isDeleted: { type: Boolean, default: false }, // Soft delete flag
+    deletedAt: { type: Date, default: null },
   },
   {
     timestamps: true,
@@ -41,6 +42,14 @@ const productSchema = new mongoose.Schema(
     toObject: { virtuals: true }, // Include virtuals when converting to plain objects
   },
 );
+
+productSchema.index({
+  name: "text",
+  shortDescription: "text",
+  longDescription: "text",
+  brand: "text",
+  tags: "text",
+});
 
 // Create SEO Slug
 productSchema.pre("save", function () {

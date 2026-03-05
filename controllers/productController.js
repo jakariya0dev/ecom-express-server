@@ -1,14 +1,17 @@
 import Product from "../models/productModel.js";
+import Variant from "../models/variantModel.js";
 import { parseString } from "../utils/safeParse.js";
 
 import {
   deleteImageFromCloudinary,
   uploadImageToCloudinary,
 } from "../services/fileUploadServices.js";
+import mongoose from "mongoose";
 
 export const createProduct = async (req, res) => {
+  let productData;
   try {
-    let productData = { ...req.body };
+    productData = { ...req.body };
 
     // ---> For debugging: log the incoming data
     // return res.status(200).json(productData);
@@ -37,30 +40,82 @@ export const createProduct = async (req, res) => {
   } catch (error) {
     console.log(error.message);
 
+    // rollback if model.save() fails
+    if (productData?.thumbnail?.public_id) {
+      await deleteImageFromCloudinary(productData.thumbnail.public_id);
+    }
+
     res
       .status(500)
       .json({ message: "Error creating product", error: error.message });
   }
 };
 
-export const getAllProducts = async (req, res) => {
+export const getProducts = async (req, res) => {
+  const { filter, search, limit = 10, page = 1 } = req.query;
+
+  const pageSize = parseInt(limit);
+  const currentPage = parseInt(page);
+  const skip = (currentPage - 1) * pageSize;
+
+  const query = {
+    isDeleted: false,
+  };
+
+  // Filters
+  if (filter) {
+    if (filter === "featured") query.isFeatured = true;
+    if (filter === "not_featured") query.isFeatured = false;
+
+    if (filter === "active") query.isActive = true;
+    if (filter === "not_active") query.isActive = false;
+
+    if (filter === "deleted") query.isDeleted = true;
+    if (filter === "not_deleted") query.isDeleted = false;
+  }
+
+  // Search
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { tags: { $regex: search, $options: "i" } },
+      { brand: { $regex: search, $options: "i" } },
+      { shortDescription: { $regex: search, $options: "i" } },
+      { longDescription: { $regex: search, $options: "i" } },
+      { "attributes.value": { $regex: search, $options: "i" } },
+    ];
+  }
+
   try {
-    const products = await Product.find({
-      isDeleted: false,
-      isActive: true,
-    }).populate("category", "name");
-    res.status(200).json({
+    const products = await Product.find(query)
+      .populate("category")
+      .populate("variants")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(pageSize);
+
+    const totalCount = await Product.countDocuments(query);
+
+    console.log(query);
+    
+
+    return res.status(200).json({
       success: true,
       message: "All products fetched successfully",
+      count: totalCount,
+      totalPages: Math.ceil(totalCount / pageSize),
+      limit: pageSize,
+      currentPage,
       products,
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: `Server error: ${error.message}`,
     });
   }
 };
+
 
 export const getProductById = async (req, res) => {
   const { id } = req.params;
@@ -159,6 +214,8 @@ export const updateProduct = async (req, res) => {
 };
 
 export const deleteProduct = async (req, res) => {
+  const db_session = await mongoose.startSession();
+  db_session.startTransaction();
   try {
     const { id } = req.params;
     const product = await Product.findById(id);
@@ -180,11 +237,51 @@ export const deleteProduct = async (req, res) => {
     //   }
     // }
 
-    product.isDeleted = true; // Soft delete
+    // Soft delete
+    product.isDeleted = true;
+    product.deletedAt = Date.now();
     await product.save();
+    await Variant.updateMany(
+      { product: id },
+      { isDeleted: true, deletedAt: Date.now() },
+    );
+
+    await db_session.commitTransaction();
+    db_session.endSession();
+
     res.status(200).json({
       success: true,
       message: "Product deleted successfully",
+    });
+  } catch (error) {
+    await db_session.abortTransaction();
+    db_session.endSession();
+
+    res.status(500).json({
+      success: false,
+      message: `Server error: ${error.message}`,
+    });
+  }
+};
+
+export const toggleProductFeaturedStatus = async (req, res) => {
+  // throw new Error("Test Error");
+  
+  try {
+    const { id } = req.params;
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+    product.isFeatured = !product.isFeatured;
+    await product.save();
+    res.status(200).json({
+      success: true,
+      message: "Product updated successfully",
+      product,
     });
   } catch (error) {
     res.status(500).json({
